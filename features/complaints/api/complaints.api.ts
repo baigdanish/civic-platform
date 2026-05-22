@@ -1,4 +1,5 @@
 import { http } from "@/services/http";
+import { ENDPOINTS } from "@/services/endpoints";
 import type {
   CreateComplaintInput,
   ComplaintDetailResponse,
@@ -7,7 +8,7 @@ import type {
 
 export async function createComplaintApi(payload: CreateComplaintInput) {
   const response = await http.post<ComplaintDetailResponse>(
-    "/complaints",
+    ENDPOINTS.complaints,
     payload,
   );
   return response.data;
@@ -19,16 +20,24 @@ type GetComplaintsParams = {
 };
 
 export async function getComplaintsApi(params: GetComplaintsParams = {}) {
-  const response = await http.get<ComplaintListResponse>("/complaints", {
+  const response = await http.get<ComplaintListResponse>(ENDPOINTS.complaints, {
     params,
   });
 
   return response.data;
 }
 
+export async function getComplaintApi(id: string) {
+  const response = await http.get<ComplaintDetailResponse>(
+    ENDPOINTS.complaintDetail(id),
+  );
+
+  return response.data;
+}
+
 export async function upvoteComplaintApi(id: string) {
   const response = await http.put<ComplaintDetailResponse>(
-    `/complaints/${id}/upvote`,
+    ENDPOINTS.complaintUpvote(id),
   );
 
   return response.data;

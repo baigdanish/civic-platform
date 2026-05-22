@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
-import Navbar from "../../../components/Navbar";
-import { type Complaint } from "../../../components/ComplaintCard";
+import { use, useEffect, useMemo, useState } from "react";
+import Navbar from "@/components/Navbar";
+import {
+  getComplaint,
+  upvoteComplaint,
+} from "@/features/complaints/services/complaints.service";
+import type { Complaint } from "@/types/complaint";
 
-const API_BASE_URL = "http://localhost:5000/api";
-
-type ComplaintDetailResponse =
-  | Complaint
-  | { complaint?: Complaint; data?: Complaint };
 type ComplaintDetailPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -29,21 +28,13 @@ export default function ComplaintDetailPage({
       setError("");
 
       try {
-        const response = await fetch(`${API_BASE_URL}/complaints/${id}`, {
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          throw new Error("Complaint details could not be loaded.");
-        }
-
-        const data: ComplaintDetailResponse = await response.json();
-        setComplaint(getComplaintDetail(data));
+        const data = await getComplaint(id);
+        setComplaint(data);
       } catch (fetchError) {
         setError(
           fetchError instanceof Error
             ? fetchError.message
-            : "Unable to fetch complaint details."
+            : "Unable to fetch complaint details.",
         );
       } finally {
         setLoading(false);
@@ -58,114 +49,44 @@ export default function ComplaintDetailPage({
       return;
     }
 
+    const complaintId = complaint._id || complaint.id;
+
+    if (!complaintId) {
+      return;
+    }
+
     setUpdating(true);
     setError("");
 
     try {
-      const complaintId = complaint._id || complaint.id;
-      const response = await fetch(
-        `${API_BASE_URL}/complaints/${complaintId}/upvote`,
-        {
-          method: "PUT",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Unable to upvote this complaint.");
-      }
-
-      setComplaint((current) =>
-        current
-          ? {
-              ...current,
-              upvotes: (current.upvotes ?? current.upvoteCount ?? 0) + 1,
-            }
-          : current
-      );
+      const updatedComplaint = await upvoteComplaint(complaintId);
+      setComplaint(updatedComplaint);
     } catch (upvoteError) {
-      setError(upvoteError instanceof Error ? upvoteError.message : "Upvote failed.");
+      setError(
+        upvoteError instanceof Error ? upvoteError.message : "Upvote failed.",
+      );
     } finally {
       setUpdating(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,_#f8fbff_0%,_#edf2f7_100%)]">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f8fbff_0%,#edf2f7_100%)]">
       <Navbar />
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
         {loading ? (
-          <div className="h-[520px] animate-pulse rounded-[2rem] border border-slate-200 bg-white/80" />
-        ) : error ? (
+          <ComplaintDetailSkeleton />
+        ) : error && !complaint ? (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {error}
           </div>
         ) : complaint ? (
-          <section className="overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
-            <div className="grid lg:grid-cols-[1.15fr_0.85fr]">
-              <div className="bg-slate-100">
-                <img
-                  src={getImageUrl(complaint)}
-                  alt={complaint.category || "Complaint image"}
-                  className="h-full min-h-[280px] w-full object-cover"
-                />
-              </div>
-
-              <div className="flex flex-col gap-6 p-6 sm:p-8">
-                <div className="flex flex-wrap items-center gap-3">
-                  <Link
-                    href="/"
-                    className="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                  >
-                    Back to complaints
-                  </Link>
-                  <StatusBadge status={complaint.status} />
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-700">
-                    {complaint.category || "General Issue"}
-                  </p>
-                  <h1 className="mt-3 font-serif text-4xl leading-tight text-slate-900">
-                    {complaint.title || complaint.area || "Untitled complaint"}
-                  </h1>
-                  <p className="mt-3 text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
-                    {complaint.area || "Area not specified"}
-                  </p>
-                  <p className="mt-4 text-base leading-7 text-slate-600">
-                    {complaint.description || "No description provided."}
-                  </p>
-                </div>
-
-                <div className="grid gap-4 rounded-[1.5rem] bg-slate-50 p-5 sm:grid-cols-2">
-                  <InfoBlock
-                    label="Reported By"
-                    value={complaint.name || "Anonymous"}
-                  />
-                  <InfoBlock
-                    label="Upvotes"
-                    value={String(complaint.upvotes ?? complaint.upvoteCount ?? 0)}
-                  />
-                  <InfoBlock
-                    label="Area"
-                    value={complaint.area || "Not specified"}
-                  />
-                  <InfoBlock
-                    label="Current Status"
-                    value={complaint.status || "Pending"}
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleUpvote}
-                  disabled={updating}
-                  className="inline-flex h-12 items-center justify-center rounded-full bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                >
-                  {updating ? "Updating..." : "Upvote This Complaint"}
-                </button>
-              </div>
-            </div>
-          </section>
+          <ComplaintDetail
+            complaint={complaint}
+            error={error}
+            onUpvote={handleUpvote}
+            updating={updating}
+          />
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
             Complaint not found.
@@ -176,18 +97,160 @@ export default function ComplaintDetailPage({
   );
 }
 
-type InfoBlockProps = {
-  label: string;
-  value: string;
-};
+function ComplaintDetail({
+  complaint,
+  error,
+  onUpvote,
+  updating,
+}: {
+  complaint: Complaint;
+  error: string;
+  onUpvote: () => void;
+  updating: boolean;
+}) {
+  const imageUrl = getImageUrl(complaint);
+  const upvotes = complaint.upvotes ?? complaint.upvoteCount ?? 0;
+  const hasLocation =
+    typeof complaint.latitude === "number" &&
+    typeof complaint.longitude === "number";
 
-function InfoBlock({ label, value }: InfoBlockProps) {
   return (
-    <div>
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+      <section className="overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
+        <div className="bg-slate-100">
+          <img
+            src={imageUrl}
+            alt={complaint.title || complaint.category || "Complaint image"}
+            className="h-[320px] w-full object-cover sm:h-[460px]"
+          />
+        </div>
+
+        <div className="grid gap-5 p-6 sm:p-8">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/"
+              className="inline-flex h-10 items-center rounded-full border border-slate-200 px-4 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+            >
+              Back to complaints
+            </Link>
+            <StatusBadge status={complaint.status} />
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-sky-700">
+              {complaint.category || "General Issue"}
+            </p>
+            <h1 className="mt-3 font-serif text-4xl leading-tight text-slate-900">
+              {complaint.title || "Untitled complaint"}
+            </h1>
+            <p className="mt-3 text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+              {complaint.area || "Area not specified"}
+            </p>
+            <p className="mt-5 text-base leading-7 text-slate-600">
+              {complaint.description || "No description provided."}
+            </p>
+          </div>
+
+          {error ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {error}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <aside className="grid content-start gap-6">
+        <section className="rounded-[2rem] border border-white/70 bg-white p-5 shadow-[0_18px_56px_rgba(15,23,42,0.08)]">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Upvotes
+              </p>
+              <p className="mt-1 text-3xl font-bold text-slate-900">
+                {upvotes}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onUpvote}
+              disabled={updating}
+              className="inline-flex h-12 items-center justify-center rounded-full bg-slate-900 px-6 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {updating ? "Updating..." : "Upvote"}
+            </button>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-[2rem] border border-white/70 bg-white shadow-[0_18px_56px_rgba(15,23,42,0.08)]">
+          <div className="p-5">
+            <h2 className="text-lg font-semibold text-slate-900">Location</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {hasLocation
+                ? `${complaint.latitude?.toFixed(6)}, ${complaint.longitude?.toFixed(6)}`
+                : "Coordinates not available"}
+            </p>
+          </div>
+          {hasLocation ? (
+            <MapPreview
+              latitude={complaint.latitude as number}
+              longitude={complaint.longitude as number}
+            />
+          ) : (
+            <div className="flex h-72 items-center justify-center border-t border-slate-100 bg-slate-50 text-sm text-slate-500">
+              No map location was submitted.
+            </div>
+          )}
+        </section>
+
+        <section className="grid gap-3 rounded-[2rem] border border-white/70 bg-white p-5 shadow-[0_18px_56px_rgba(15,23,42,0.08)]">
+          <InfoBlock label="Ward" value={complaint.wardNumber || "Not assigned"} />
+          <InfoBlock label="Ward Email" value={complaint.wardEmail || "Not available"} />
+          <InfoBlock label="Reported" value={formatDate(complaint.createdAt)} />
+          <InfoBlock label="Last Updated" value={formatDate(complaint.updatedAt)} />
+        </section>
+      </aside>
+    </div>
+  );
+}
+
+function MapPreview({
+  latitude,
+  longitude,
+}: {
+  latitude: number;
+  longitude: number;
+}) {
+  const mapUrl = useMemo(() => {
+    const delta = 0.01;
+    const bbox = [
+      longitude - delta,
+      latitude - delta,
+      longitude + delta,
+      latitude + delta,
+    ].join(",");
+
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude},${longitude}`;
+  }, [latitude, longitude]);
+
+  return (
+    <iframe
+      title="Complaint location map"
+      src={mapUrl}
+      className="h-72 w-full border-0"
+      loading="lazy"
+    />
+  );
+}
+
+function InfoBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-50 px-4 py-3">
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
-      <p className="mt-2 text-base font-semibold text-slate-900">{value}</p>
+      <p className="mt-2 break-words text-sm font-semibold text-slate-900">
+        {value}
+      </p>
     </div>
   );
 }
@@ -209,11 +272,23 @@ function StatusBadge({ status }: { status?: string }) {
   );
 }
 
+function ComplaintDetailSkeleton() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
+      <div className="h-[680px] animate-pulse rounded-[2rem] border border-slate-200 bg-white/80" />
+      <div className="grid content-start gap-6">
+        <div className="h-28 animate-pulse rounded-[2rem] border border-slate-200 bg-white/80" />
+        <div className="h-96 animate-pulse rounded-[2rem] border border-slate-200 bg-white/80" />
+      </div>
+    </div>
+  );
+}
+
 function getImageUrl(complaint: Complaint) {
   const imagePath = complaint.image || complaint.imageUrl || complaint.photo;
 
   if (!imagePath) {
-    return "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80";
+    return "https://images.unsplash.com/photo-1523428096881-5bd79d043006?auto=format&fit=crop&w=1200&q=80";
   }
 
   if (imagePath.startsWith("http")) {
@@ -225,16 +300,13 @@ function getImageUrl(complaint: Complaint) {
     : `http://localhost:5000/${imagePath}`;
 }
 
-function getComplaintDetail(response: ComplaintDetailResponse) {
-  if (response && typeof response === "object") {
-    if ("data" in response) {
-      return response.data || null;
-    }
-
-    if ("complaint" in response) {
-      return response.complaint || null;
-    }
+function formatDate(value?: string) {
+  if (!value) {
+    return "Not available";
   }
 
-  return response as Complaint;
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }

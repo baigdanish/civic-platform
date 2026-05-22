@@ -1,5 +1,6 @@
 import {
   createComplaintApi,
+  getComplaintApi,
   getComplaintsApi,
   upvoteComplaintApi,
 } from "@/features/complaints/api/complaints.api";
@@ -12,6 +13,11 @@ type ComplaintFilters = {
 
 export async function getComplaints(filters: ComplaintFilters = {}) {
   const response = await getComplaintsApi(filters);
+  return response.data;
+}
+
+export async function getComplaint(id: string) {
+  const response = await getComplaintApi(id);
   return response.data;
 }
 
