@@ -7,7 +7,9 @@ import { type Complaint } from "../../../components/ComplaintCard";
 
 const API_BASE_URL = "http://localhost:5000/api";
 
-type ComplaintDetailResponse = Complaint | { complaint?: Complaint };
+type ComplaintDetailResponse =
+  | Complaint
+  | { complaint?: Complaint; data?: Complaint };
 type ComplaintDetailPageProps = {
   params: Promise<{ id: string }>;
 };
@@ -36,11 +38,7 @@ export default function ComplaintDetailPage({
         }
 
         const data: ComplaintDetailResponse = await response.json();
-        setComplaint(
-          data && typeof data === "object" && "complaint" in data
-            ? (data as { complaint?: Complaint }).complaint || null
-            : (data as Complaint)
-        );
+        setComplaint(getComplaintDetail(data));
       } catch (fetchError) {
         setError(
           fetchError instanceof Error
@@ -66,7 +64,7 @@ export default function ComplaintDetailPage({
     try {
       const complaintId = complaint._id || complaint.id;
       const response = await fetch(
-        `${API_BASE_URL}/complaints/upvote/${complaintId}`,
+        `${API_BASE_URL}/complaints/${complaintId}/upvote`,
         {
           method: "PUT",
         }
@@ -128,8 +126,11 @@ export default function ComplaintDetailPage({
                     {complaint.category || "General Issue"}
                   </p>
                   <h1 className="mt-3 font-serif text-4xl leading-tight text-slate-900">
-                    {complaint.area || "Unknown Area"}
+                    {complaint.title || complaint.area || "Untitled complaint"}
                   </h1>
+                  <p className="mt-3 text-sm font-medium uppercase tracking-[0.18em] text-slate-500">
+                    {complaint.area || "Area not specified"}
+                  </p>
                   <p className="mt-4 text-base leading-7 text-slate-600">
                     {complaint.description || "No description provided."}
                   </p>
@@ -222,4 +223,18 @@ function getImageUrl(complaint: Complaint) {
   return imagePath.startsWith("/")
     ? `http://localhost:5000${imagePath}`
     : `http://localhost:5000/${imagePath}`;
+}
+
+function getComplaintDetail(response: ComplaintDetailResponse) {
+  if (response && typeof response === "object") {
+    if ("data" in response) {
+      return response.data || null;
+    }
+
+    if ("complaint" in response) {
+      return response.complaint || null;
+    }
+  }
+
+  return response as Complaint;
 }

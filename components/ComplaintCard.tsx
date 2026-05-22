@@ -6,6 +6,7 @@ export type Complaint = {
   _id?: string;
   id?: string;
   name?: string;
+  title?: string;
   area?: string;
   category?: string;
   description?: string;
@@ -54,8 +55,11 @@ export default function ComplaintCard({
               {complaint.category || "General"}
             </p>
             <h2 className="mt-2 text-xl font-semibold text-slate-900">
-              {complaint.area || "Area not specified"}
+              {complaint.title || complaint.area || "Untitled complaint"}
             </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {complaint.area || "Area not specified"}
+            </p>
           </div>
           <div className="rounded-2xl bg-slate-100 px-3 py-2 text-center">
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-500">

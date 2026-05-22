@@ -1,24 +1,29 @@
 "use client";
 
 import { type ChangeEvent, type FormEvent, useState } from "react";
+import LocationPicker from "./LocationPicker";
 import Navbar from "../../components/Navbar";
 
 const API_BASE_URL = "http://localhost:5000/api";
 
 type ComplaintFormState = {
-  name: string;
+  title: string;
   area: string;
   category: string;
   description: string;
   image: File | null;
+  latitude: number;
+  longitude: number;
 };
 
 const INITIAL_FORM: ComplaintFormState = {
-  name: "",
+  title: "",
   area: "",
   category: "",
   description: "",
   image: null,
+  latitude: 0,
+  longitude: 0,
 };
 
 export default function AddComplaintPage() {
@@ -28,14 +33,15 @@ export default function AddComplaintPage() {
   const [errorMessage, setErrorMessage] = useState("");
 
   function handleChange(
-    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) {
-    const { name, value } = event.target;
+    const target = event.currentTarget;
+    const { name, value } = target;
 
-    if (event.target instanceof HTMLInputElement && event.target.files) {
+    if (target instanceof HTMLInputElement && target.type === "file") {
       setFormData((current) => ({
         ...current,
-        [name]: event.target.files?.[0] || null,
+        [name]: target.files?.[0] || null,
       }));
       return;
     }
@@ -54,10 +60,12 @@ export default function AddComplaintPage() {
 
     try {
       const payload = new FormData();
-      payload.append("name", formData.name);
+      payload.append("title", formData.title);
       payload.append("area", formData.area);
       payload.append("category", formData.category);
       payload.append("description", formData.description);
+      payload.append("latitude", String(formData.latitude));
+      payload.append("longitude", String(formData.longitude));
 
       if (formData.image) {
         payload.append("image", formData.image);
@@ -74,13 +82,13 @@ export default function AddComplaintPage() {
 
       setFormData(INITIAL_FORM);
       setSuccessMessage(
-        "Complaint submitted successfully. It should now appear on the dashboard."
+        "Complaint submitted successfully. It should now appear on the dashboard.",
       );
     } catch (submitError) {
       setErrorMessage(
         submitError instanceof Error
           ? submitError.message
-          : "Something went wrong while submitting."
+          : "Something went wrong while submitting.",
       );
     } finally {
       setSubmitting(false);
@@ -88,10 +96,10 @@ export default function AddComplaintPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,_#f8fafc_0%,_#edf6ff_100%)]">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#edf6ff_100%)]">
       <Navbar />
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
-        <section className="rounded-[2rem] border border-white/70 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:p-8">
+        <section className="rounded-4xl border border-white/70 bg-white p-6 shadow-[0_24px_80px_rgba(15,23,42,0.08)] sm:p-8">
           <div className="max-w-2xl">
             <p className="mb-3 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-800">
               New Complaint
@@ -109,8 +117,8 @@ export default function AddComplaintPage() {
             <div className="grid gap-5 md:grid-cols-2">
               <FormField
                 label="Your Name"
-                name="name"
-                value={formData.name}
+                name="title"
+                value={formData.title}
                 onChange={handleChange}
                 placeholder="Enter your name"
               />
@@ -130,6 +138,16 @@ export default function AddComplaintPage() {
                 value={formData.category}
                 onChange={handleChange}
                 placeholder="Ex: Road Damage"
+              />
+
+              <LocationPicker
+                onLocationChange={(lat, lng) => {
+                  setFormData((current) => ({
+                    ...current,
+                    latitude: lat,
+                    longitude: lng,
+                  }));
+                }}
               />
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 Image Upload
@@ -189,7 +207,7 @@ export default function AddComplaintPage() {
 
 type FormFieldProps = {
   label: string;
-  name: "name" | "area" | "category";
+  name: "title" | "area" | "category";
   value: string;
   onChange: (event: ChangeEvent<HTMLInputElement>) => void;
   placeholder: string;
